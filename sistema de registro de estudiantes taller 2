@@ -1,0 +1,214 @@
+var builder = WebApplication.CreateBuilder(args);
+
+var app = builder.Build();
+
+var api = app.MapGroup("/api");
+
+api.MapGet("/", () =>{
+    return new {message = "Bienvenido a mi Api de estudiantes"};
+});
+ 
+
+List<Estudiante> estudiantes = [
+     new Estudiante()
+    {
+        Id = Guid.NewGuid(),
+        Nombre = "Juan",
+        Apellido = "Rodríguez",
+        Matricula = "LR-2025-64654",
+        Carrera = "Ingeniería de Software",
+        Edad = 22
+    },
+    
+    new Estudiante()
+    {
+        Id = Guid.NewGuid(),
+        Nombre = "María",
+        Apellido = "Sánchez",
+        Matricula = "LR-2024-45464",
+        Carrera = "Contabilidad",
+        Edad = 18
+    },
+    new Estudiante()
+    {
+        Id = Guid.NewGuid(),
+        Nombre = "Julián",
+        Apellido = "Pérez",
+        Matricula = "LR-2024-02135",
+        Carrera = "Administración",
+        Edad = 32
+    }
+
+];
+
+
+api.MapGet("/estudiantes", () =>
+{
+    return estudiantes;
+});
+
+
+api.MapPost("/estudiantes", (Estudiante estudiante) =>
+{
+    
+
+if (string.IsNullOrWhiteSpace(estudiante.Nombre) ||
+    string.IsNullOrWhiteSpace(estudiante.Apellido) ||
+    string.IsNullOrWhiteSpace(estudiante.Matricula) ||
+    string.IsNullOrWhiteSpace(estudiante.Carrera) ||
+    estudiante.Edad <= 0)
+{
+    return Results.BadRequest(
+        new { Message = "Todos los campos son obligatorios y la edad debe ser mayor que cero" }
+    );
+}
+
+
+if (estudiantes.Any(e => e.Matricula == estudiante.Matricula))
+{
+    return Results.BadRequest(
+        new { Message = "Ya existe un estudiante con esa matrícula" }
+    );
+}
+
+    var nuevoEstudiante = estudiante with
+    {
+        Id = Guid.NewGuid()
+    };
+
+    estudiantes.Add(nuevoEstudiante);
+
+    return Results.Created(
+    $"/api/estudiante/{nuevoEstudiante.Id}",
+    nuevoEstudiante
+    );
+});
+
+
+api.MapGet("/estudiante/{id}", (Guid id) =>
+{
+    var estudiante = estudiantes.FirstOrDefault(e => e.Id == id);
+
+    if (estudiante is null)
+    {
+        return Results.NotFound(
+            new { Message = "Estudiante no encontrado" }
+        );
+    }
+
+    return Results.Ok(new { Estudiante = estudiante });
+});
+
+
+api.MapGet("/estudiantes-por-edad", (int edad) =>
+{
+    var estudiantesFiltrados =
+        estudiantes.FindAll(e => e.Edad > edad);
+
+    if (estudiantesFiltrados.Count <= 0)
+    {
+        return Results.NotFound(
+            new { Message = "No existen estudiantes con esos criterios" }
+        );
+    }
+
+    return Results.Ok(estudiantesFiltrados);
+});
+
+
+api.MapDelete("/estudiante/{id}", (Guid id) =>
+{
+    var estudiante = estudiantes.FirstOrDefault(e => e.Id == id);
+
+    if (estudiante is null)
+    {
+        return Results.NotFound(
+            new { Message = "Estudiante no encontrado" }
+        );
+    }
+
+    estudiantes.Remove(estudiante);
+
+    return Results.NoContent();
+});
+
+
+
+api.MapPut("/estudiante/{id}", (Guid id, Estudiante estudiante) =>
+{
+     
+    var estudianteAnterior =
+        estudiantes.FirstOrDefault(e => e.Id == id);
+    
+    
+    if (estudianteAnterior is null)
+   
+
+    {
+        return Results.NotFound(
+            new { Message = "Estudiante no encontrado" }
+        );
+    }
+
+    
+if (estudiantes.Any(e =>
+    e.Matricula == estudiante.Matricula &&
+    e.Id != id))
+{
+    return Results.BadRequest(
+        new { Message = "La matrícula ya pertenece a otro estudiante" }
+    );
+}
+
+    estudianteAnterior.Nombre = estudiante.Nombre;
+    estudianteAnterior.Apellido = estudiante.Apellido;
+    estudianteAnterior.Matricula = estudiante.Matricula;
+    estudianteAnterior.Carrera = estudiante.Carrera;
+    estudianteAnterior.Edad = estudiante.Edad;
+
+    return Results.NoContent();
+});
+
+
+
+api.MapPatch("/estudiante/{id}/carrera", (Guid id, string carrera) =>
+{
+    var estudiante = estudiantes.FirstOrDefault(e => e.Id == id);
+
+    if (estudiante is null)
+    {
+        return Results.NotFound(
+            new { Message = "Estudiante no encontrado" }
+        );
+    }
+
+    if (string.IsNullOrWhiteSpace(carrera))
+    {
+        return Results.BadRequest(
+            new { Message = "La carrera es obligatoria" }
+        );
+    }
+
+    estudiante.Carrera = carrera;
+
+    return Results.Ok(estudiante);
+});
+
+
+app.Run("http://localhost:1515");
+
+
+record Estudiante()
+{
+   public Guid Id { get; init;}
+
+   required public string Nombre { get; set; }
+
+   required public string Apellido { get; set; }
+   
+   required public string Matricula { get; set; }
+
+   required public string Carrera { get; set; }
+
+   required public int Edad { get; set; }
+}
